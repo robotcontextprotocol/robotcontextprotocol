@@ -54,7 +54,38 @@ sudo cp -r /usr/local/share/stlink/* ./debian/usr/local/share/stlink/
 sudo cp -r /usr/local/include/stlink/* ./debian/usr/local/include/stlink/
 sudo cp -r /usr/local/share/man/man1/st-* ./debian/usr/local/share/man/man1/
 
+# Configure the Go runtime environment
 /usr/local/go/bin/go env -w GOSUMDB=off
 /usr/local/go/bin/go env -w GOPATH=/tmp/golang
 /usr/local/go/bin/go env -w GOMODCACHE=/tmp/golang/pkg/mod
 export GO111MODULE=on && export GOPROXY=https://goproxy.io
+
+# Build the backend
+cd ../backend/cmd && /usr/local/go/bin/go mod tidy && /usr/local/go/bin/go build -o ../release/main main.go
+sudo cp ../release/main ../../tools/debian/opt/rcp/backend/release/
+sudo rm -rf ../release/main && cd ../../tools
+
+# Copy frontend files to debian package
+sudo cp -r ../frontend/release/* ./debian/opt/rcp/frontend/release/
+
+# Configure the debian package
+sudo touch debian/DEBIAN/conffiles && sudo chmod +x debian/DEBIAN/conffiles
+sudo touch debian/DEBIAN/control && sudo chmod +x debian/DEBIAN/control
+
+sudo sh -c "echo 'Package: rcp' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Version: $version-$datetime' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Maintainer: GEEKROS <admin@geekros.com>' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Homepage: https://www.robotcontextprotocol.com' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Architecture: $architecture' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Installed-Size: 1048576' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Section: utils' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Depends: $depends' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Recommends:' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Suggests:' >> debian/DEBIAN/control"
+sudo sh -c "echo 'Description: Robot Context Protocol For Multimodal LLM' >> debian/DEBIAN/control"
+
+sudo dpkg --build debian && dpkg-name debian.deb
+
+echo "sudo scp rcp_*.deb root@ip:/data/wwwroot/mirrors.com/ubuntu/pool/main/jammy/ && sudo rm -rf *.deb && sudo rm -rf debian"
+
+exit 0
